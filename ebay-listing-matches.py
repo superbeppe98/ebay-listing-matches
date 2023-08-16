@@ -22,10 +22,10 @@ if not os.path.exists(active_listings_path):
 SERVER_ADDRESS = os.environ.get('INVENTREE_SERVER_ADDRESS')
 MY_USERNAME = os.environ.get('INVENTREE_USERNAME')
 MY_PASSWORD = os.environ.get('INVENTREE_PASSWORD')
-api = InvenTreeAPI(SERVER_ADDRESS, username=MY_USERNAME,
-                   password=MY_PASSWORD, timeout=3600)
+inventree_api = InvenTreeAPI(SERVER_ADDRESS, username=MY_USERNAME,
+                             password=MY_PASSWORD, timeout=3600)
 
-parts = Part.list(api)
+parts = Part.list(inventree_api)
 parts.sort(key=lambda x: x.IPN)
 
 data = [{'url': part.link, 'ipn': part.IPN} if part.link else {
@@ -34,8 +34,8 @@ data = [{'url': part.link, 'ipn': part.IPN} if part.link else {
 with open(path, 'w') as json_file:
     json.dump(data, json_file, indent=4)
 
-api = Trading(
-    domain='api.ebay.com',
+ebay_api = Trading(
+    domain='ebay_api.ebay.com',
     appid=os.environ.get('EBAY_APP_ID'),
     devid=os.environ.get('EBAY_DEV_ID'),
     certid=os.environ.get('EBAY_CERT_ID'),
@@ -48,7 +48,7 @@ entries_per_page = 200
 all_listings = []
 
 while True:
-    response = api.execute('GetMyeBaySelling', {
+    response = ebay_api.execute('GetMyeBaySelling', {
         'ActiveList': {
             'Include': True,
             'Pagination': {
@@ -125,9 +125,6 @@ for ebay_item in active_listings_data:
         else:
             print(f"No match found for SKU {ebay_sku}")
 
-print(
-    f"\nComparison completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
-
 part_mapping = {part['ipn']: part['url'] for part in stock_listings_data}
 
 
@@ -189,6 +186,10 @@ for ebay_item in active_listings_data:
             matching_details.append(
                 {'ebay_url': ebay_url, 'ipn': ebay_sku, 'match_status': 'Missing'})
 
+print(
+    f"\nComparison completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
+
+
 missing_links += len(skus_without_link)
 
 matching_details_sorted = sorted(matching_details, key=lambda x: x['ipn'])
@@ -204,7 +205,29 @@ for part in stock_listings_data:
 
 for match in matching_details_sorted:
     print(
-        f"eBay URL: {match['ebay_url']} - IPN: {match['ipn']} - {match['match_status']} on Inventree URL")
+        f"IPN: {match['ipn']} - eBay URL: {match['ebay_url']} - {match['match_status']} on InvenTree URL")
+
+    if match['match_status'] == 'Not a match':
+        ipn = match['ipn']
+        ebay_url = match['ebay_url']
+
+        # Trova l'oggetto Part corrispondente all'IPN
+        matching_part = None
+        for part in parts:
+            if part.IPN == ipn:
+                matching_part = part
+                break
+
+        if matching_part:
+            # Aggiorna il link eBay nell'oggetto Part
+            matching_part.link = ebay_url
+            matching_part.save()
+
+            print(
+                f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
+        else:
+            print(f"No matching Part found for IPN {ipn}")
+
 
 print("\nIPNs without a match:")
 for ipn in ipns_without_match:
@@ -212,3 +235,6 @@ for ipn in ipns_without_match:
 
 print(
     f"\nLinks Comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
+
+
+# aggiungere i confezionamenti mancanti e il controllo link modifica in inventree da ebay
