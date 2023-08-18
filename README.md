@@ -16,7 +16,7 @@ export INVENTREE_USERNAME=YOUR_USERNAME
 export INVENTREE_PASSWORD=YOUR_PASSWORD
 ```
 
-Run the script ebay_listing_matcher.py:
+Run the script ebay-listing-matcher.py:
 
 ```shell
 python3 ebay_listing_matcher.py
