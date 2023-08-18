@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from inventree.api import InvenTreeAPI
 from inventree.part import Part
+from inventree.stock import StockItem
 from ebaysdk.trading import Connection as Trading
 from ebaysdk.exception import ConnectionError
 import json
@@ -212,10 +213,8 @@ for match in matching_details_sorted:
         ebay_url = match['ebay_url']
 
         # Trova l'oggetto Part corrispondente all'IPN
-        matching_part = None
         for part in parts:
             if part.IPN == ipn:
-                # matching_part = part
                 # Update specified part parameters
                 part.save(data={
                     "link": ebay_url,
@@ -235,5 +234,44 @@ for ipn in ipns_without_match:
 print(
     f"\nLinks Comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
 
+# Request the list of parts through the API
+parts = Part.list(inventree_api)
 
-# aggiungere i confezionamenti mancanti
+# Order the list of parts by IPN
+parts.sort(key=lambda x: str(x.IPN))
+
+# Prepare a list of dictionaries for parts data
+parts_data = [{"name": part.name, "IPN": part.IPN,
+               "ID": part.pk, "packaging": ""} for part in parts]
+
+# Retrieve all stock items through the API
+stock_items = StockItem.list(inventree_api)
+
+# Update the JSON with the "packaging" field from the StockItems API
+for item in parts_data:
+    part_ipn = item['IPN']
+    part_obj = next((part for part in parts if part.IPN == part_ipn), None)
+
+    if part_obj:
+        stock_items_for_part = [
+            stock_item for stock_item in stock_items if stock_item.part == part_obj.pk]
+
+        if stock_items_for_part:
+            stock_item = stock_items_for_part[0]
+            item['packaging'] = stock_item.packaging
+
+# Print the parts without packaging
+print("\nParts Without Packaging:")
+missing_packaging_found = False
+missing_packaging_count = 0  # Initialize the counter
+
+for part in parts_data:
+    if not part['packaging']:
+        missing_packaging_found = True
+        missing_packaging_count += 1  # Increment the counter
+        print(f"IPN: {part['IPN']} - Without Packaging")
+
+if missing_packaging_found:
+    print(f"\nTotal Parts Without Packaging: {missing_packaging_count}")
+else:
+    print("\nNo Parts Without Packaging")
