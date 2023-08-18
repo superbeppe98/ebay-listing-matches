@@ -223,18 +223,10 @@ for match in matching_details_sorted:
 
                 # Reload data from remote server
                 part.reload()
+
+                print(
+                    f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
                 break
-
-        """ if matching_part:
-            # Aggiorna il link eBay nell'oggetto Part
-            matching_part.link = ebay_url
-            matching_part.save() 
-
-        print(
-            f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
-        else:
-            print(f"No matching Part found for IPN {ipn}")"""
-
 
 print("\nIPNs without a match:")
 for ipn in ipns_without_match:
@@ -244,4 +236,4 @@ print(
     f"\nLinks Comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
 
 
-# aggiungere i confezionamenti mancanti e il controllo link modifica in inventree da ebay
+# aggiungere i confezionamenti mancanti
