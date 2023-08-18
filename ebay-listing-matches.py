@@ -35,7 +35,7 @@ with open(path, 'w') as json_file:
     json.dump(data, json_file, indent=4)
 
 ebay_api = Trading(
-    domain='ebay_api.ebay.com',
+    domain='api.ebay.com',
     appid=os.environ.get('EBAY_APP_ID'),
     devid=os.environ.get('EBAY_DEV_ID'),
     certid=os.environ.get('EBAY_CERT_ID'),
@@ -215,18 +215,25 @@ for match in matching_details_sorted:
         matching_part = None
         for part in parts:
             if part.IPN == ipn:
-                matching_part = part
+                # matching_part = part
+                # Update specified part parameters
+                part.save(data={
+                    "link": ebay_url,
+                })
+
+                # Reload data from remote server
+                part.reload()
                 break
 
-        if matching_part:
+        """ if matching_part:
             # Aggiorna il link eBay nell'oggetto Part
             matching_part.link = ebay_url
-            matching_part.save()
+            matching_part.save() 
 
-            print(
-                f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
+        print(
+            f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
         else:
-            print(f"No matching Part found for IPN {ipn}")
+            print(f"No matching Part found for IPN {ipn}")"""
 
 
 print("\nIPNs without a match:")
