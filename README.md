@@ -30,3 +30,4 @@ Check for duplicate SKUs in the eBay listings.
 Compare eBay listings with Inventree part data to find matches based on SKUs.
 Display comparison results, including correct matches, missing matches, and incorrect matches.
 Print eBay URLs and associated IPNs for analysis.
+Also display the missing packaging information for the matched parts.
