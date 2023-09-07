@@ -10,10 +10,10 @@ import json
 
 load_dotenv()
 
-path = "stock_listings.json"
+stock_listings_path = "stock_listings.json"
 
-if not os.path.exists(path):
-    open(path, "w").close()
+if not os.path.exists(stock_listings_path):
+    open(stock_listings_path, "w").close()
 
 active_listings_path = "active_listings.json"
 
@@ -29,10 +29,10 @@ inventree_api = InvenTreeAPI(SERVER_ADDRESS, username=MY_USERNAME,
 parts = Part.list(inventree_api)
 parts.sort(key=lambda x: x.IPN)
 
-data = [{'url': part.link, 'ipn': part.IPN} if part.link else {
-    'url': '', 'ipn': part.IPN} for part in parts]
+data = [{'url': part.link, 'ipn': part.IPN[:11]} if part.link else {
+    'url': '', 'ipn': part.IPN[:11]} for part in parts]
 
-with open(path, 'w') as json_file:
+with open(stock_listings_path, 'w') as json_file:
     json.dump(data, json_file, indent=4)
 
 ebay_api = Trading(
@@ -147,7 +147,7 @@ for ebay_item in active_listings_data:
         if '-' in ebay_sku:
             main_ipn, variants = ebay_sku.split('-', 1)
             if main_ipn in part_mapping:
-                ipn = main_ipn
+                ipn = main_ipn[:11]  # Keep only the first 11 digits
                 url = part_mapping[main_ipn]
 
                 for variant in variants.split('-'):
@@ -162,7 +162,8 @@ for ebay_item in active_listings_data:
                     ipn_with_variant = main_ipn + variant
                     if ipn_with_variant in part_mapping:
                         found_variant = True
-                        ipn = ipn_with_variant
+                        # Keep only the first 11 digits
+                        ipn = ipn_with_variant[:11]
                         url = part_mapping[ipn_with_variant]
                         break
 
@@ -170,8 +171,8 @@ for ebay_item in active_listings_data:
                     ipn = None
                     url = None
         else:
-            ipn = ebay_sku
-            url = part_mapping.get(ebay_sku)
+            ipn = ebay_sku[:11]  # Keep only the first 11 digits
+            url = part_mapping.get(ipn)
 
         if ipn and url:
             if ebay_url == url:
@@ -185,7 +186,7 @@ for ebay_item in active_listings_data:
             missing_links += 1
             skus_without_link.add(ebay_sku)
             matching_details.append(
-                {'ebay_url': ebay_url, 'ipn': ebay_sku, 'match_status': 'Missing'})
+                {'ebay_url': ebay_url, 'ipn': ebay_sku[:11], 'match_status': 'Missing'})
 
 print(
     f"\nComparison completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
