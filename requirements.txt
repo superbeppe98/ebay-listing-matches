@@ -3,4 +3,4 @@ beautifulsoup4==4.12.2
 bs4==0.0.1
 python-dotenv==1.0.0
 requests==2.31.0
-inventree-api-client==0.7.2
+inventree==0.12.2
