@@ -189,7 +189,7 @@ for ebay_item in active_listings_data:
                 {'ebay_url': ebay_url, 'ipn': ebay_sku[:11], 'match_status': 'Missing'})
 
 print(
-    f"\nComparison completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
+    f"\nComparison check completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
 
 
 missing_links += len(skus_without_link)
@@ -233,7 +233,7 @@ for ipn in ipns_without_match:
     print(f"IPN: {ipn} - Not mapped on eBay")
 
 print(
-    f"\nLinks Comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
+    f"\nLinks check comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
 
 # Request the list of parts through the API
 parts = Part.list(inventree_api)
@@ -273,6 +273,7 @@ for part in parts_data:
         print(f"IPN: {part['IPN']} - Without Packaging")
 
 if missing_packaging_found:
-    print(f"\nTotal Parts Without Packaging: {missing_packaging_count}")
+    print(
+        f"\nParts Without Packaging check completed. Total Parts Without Packaging: {missing_packaging_count}")
 else:
-    print("\nNo Parts Without Packaging")
+    print("\nParts Without Packaging check completed. No Parts Without Packaging")
