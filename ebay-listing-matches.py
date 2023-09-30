@@ -1,11 +1,9 @@
 import os
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from inventree.api import InvenTreeAPI
 from inventree.part import Part
 from inventree.stock import StockItem
-from ebaysdk.trading import Connection as Trading
-from ebaysdk.exception import ConnectionError
+from ebaysdk.trading import Connection
 import json
 
 load_dotenv()
@@ -35,7 +33,7 @@ data = [{'url': part.link, 'ipn': part.IPN[:11]} if part.link else {
 with open(stock_listings_path, 'w') as json_file:
     json.dump(data, json_file, indent=4)
 
-ebay_api = Trading(
+ebay_api = Connection(
     domain='api.ebay.com',
     appid=os.environ.get('EBAY_APP_ID'),
     devid=os.environ.get('EBAY_DEV_ID'),
@@ -45,7 +43,7 @@ ebay_api = Trading(
 )
 
 page_number = 1
-entries_per_page = 200
+entries_per_page = 1000
 all_listings = []
 
 while True:
@@ -59,8 +57,18 @@ while True:
         }
     })
 
-    if response.reply.ActiveList is None:
-        break
+    try:
+        if response.reply.ActiveList is None:
+            raise AttributeError("ActiveList is missing in the response")
+    except AttributeError as e:
+        print(f"Errore: {e}")
+        # Termina il programma in stato di errore
+        exit(1)
+
+    # Se l'attributo ActiveList è presente, procedi con il resto del codice
+    active_listings = response.reply.ActiveList.Item
+    for listing in active_listings:
+        print(f"Titolo: {listing.Title} - ID: {listing.ItemID}")
 
     all_listings.extend(response.reply.ActiveList.ItemArray.Item)
 
