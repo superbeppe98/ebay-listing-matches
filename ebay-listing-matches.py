@@ -43,7 +43,7 @@ ebay_api = Connection(
 )
 
 page_number = 1
-entries_per_page = 1000
+entries_per_page = 200
 all_listings = []
 
 while True:
