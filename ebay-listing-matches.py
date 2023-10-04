@@ -61,8 +61,6 @@ while True:
     all_listings.extend(response.reply.ActiveList.ItemArray.Item)
 
     if int(response.reply.ActiveList.PaginationResult.TotalNumberOfPages) > page_number:
-        print(
-            f"Page {page_number} of {response.reply.ActiveList.PaginationResult.TotalNumberOfPages}")
         page_number += 1
     else:
         break
