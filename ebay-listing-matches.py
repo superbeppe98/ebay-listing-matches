@@ -1,4 +1,5 @@
 import os
+from time import sleep
 from dotenv import load_dotenv
 from inventree.api import InvenTreeAPI
 from inventree.part import Part
@@ -57,22 +58,11 @@ while True:
         }
     })
 
-    try:
-        if response.reply.ActiveList is None:
-            raise AttributeError("ActiveList is missing in the response")
-    except AttributeError as e:
-        print(f"Errore: {e}")
-        # Termina il programma in stato di errore
-        exit(1)
-
-    # Se l'attributo ActiveList è presente, procedi con il resto del codice
-    active_listings = response.reply.ActiveList.Item
-    for listing in active_listings:
-        print(f"Titolo: {listing.Title} - ID: {listing.ItemID}")
-
     all_listings.extend(response.reply.ActiveList.ItemArray.Item)
 
     if int(response.reply.ActiveList.PaginationResult.TotalNumberOfPages) > page_number:
+        print(
+            f"Page {page_number} of {response.reply.ActiveList.PaginationResult.TotalNumberOfPages}")
         page_number += 1
     else:
         break
