@@ -1,6 +1,6 @@
 ebaysdk==2.2.0
 beautifulsoup4==4.12.3
-bs4==0.0.1
+bs4==0.0.2
 python-dotenv==1.0.0
 requests==2.31.0
 inventree==0.13.2
