@@ -134,8 +134,11 @@ print(f"Total stock listings: {total_stock_listings}")
 
 
 
+# Estrai gli SKU da InvenTree
+stock_skus = {item['ipn'] for item in stock_listings_data}
 
-
+# Estrai gli SKU attivi da eBay
+active_skus = {item['SKU'] for item in active_listings_data if item.get('SKU')}
 
 
 
@@ -172,7 +175,7 @@ for active_item in active_listings:
     if '-' in active_sku:
         main_ipn, variants = active_sku.split('-', 1)
         main_ipn = main_ipn[:11]  # Mantieni solo i primi 11 caratteri
-
+        active_skus.add(main_ipn)
         # Debug: Log dell'SKU principale e delle sue varianti
         logging.info(f"Main IPN: {main_ipn}, Variants: {variants}")
 
@@ -181,7 +184,7 @@ for active_item in active_listings:
             variant_length = len(variant)
             ipn_with_variant = main_ipn[:-variant_length] + variant
             total_comparisons += 1  # Ogni combinazione di IPN e variante conta come un confronto
-
+            active_skus.add(ipn_with_variant)
             # Debug: Log della variante attualmente processata
             logging.info(f"Processing variant: {variant}")
 
@@ -230,6 +233,17 @@ print(f"\nComparison check completed.")
 print(f"Total comparisons: {total_comparisons}")
 print(f"Total matches: {total_matches}")
 print(f"Missing matches: {missing_matches}")
+
+
+# Trova gli SKU mancanti su eBay rispetto a InvenTree
+missing_skus = stock_skus - active_skus
+
+# Stampa gli SKU mancanti
+if missing_skus:
+    print(f"Gli SKU presenti in InvenTree ma non attivi su eBay sono: {missing_skus}")
+    print(len(missing_skus))
+else:
+    print("Non sono stati trovati SKU mancanti su eBay rispetto a InvenTree.")
 
 
 
