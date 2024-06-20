@@ -1,39 +1,55 @@
 import os
-from time import sleep
+import json
 from dotenv import load_dotenv
+import logging
 from inventree.api import InvenTreeAPI
 from inventree.part import Part
 from inventree.stock import StockItem
 from ebaysdk.trading import Connection
-import json
 
 load_dotenv()
 
+# Configura il logging
+logging.basicConfig(filename='debug.log', filemode='w', level=logging.INFO, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+def ensure_json_file(path):
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            json.dump([], f)
+
+def save_data_to_json(data, path):
+    with open(path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
+
+def load_data_from_json(path):
+    if os.path.exists(path):
+        with open(path, 'r') as json_file:
+            return json.load(json_file)
+    return []
+
+# File paths
 stock_listings_path = "stock_listings.json"
-
-if not os.path.exists(stock_listings_path):
-    open(stock_listings_path, "w").close()
-
 active_listings_path = "active_listings.json"
 
-if not os.path.exists(active_listings_path):
-    open(active_listings_path, "w").close()
+# Ensure JSON files exist
+ensure_json_file(stock_listings_path)
+ensure_json_file(active_listings_path)
 
+# InvenTree API connection
 SERVER_ADDRESS = os.environ.get('INVENTREE_SERVER_ADDRESS')
 MY_USERNAME = os.environ.get('INVENTREE_USERNAME')
 MY_PASSWORD = os.environ.get('INVENTREE_PASSWORD')
-inventree_api = InvenTreeAPI(SERVER_ADDRESS, username=MY_USERNAME,
-                             password=MY_PASSWORD, timeout=3600)
+inventree_api = InvenTreeAPI(SERVER_ADDRESS, username=MY_USERNAME, password=MY_PASSWORD, timeout=3600)
 
+# Retrieve parts from InvenTree and save data to stock_listings.json
 parts = Part.list(inventree_api)
 parts.sort(key=lambda x: x.IPN)
+data = [{'url': part.link, 'ipn': part.IPN[:11]} if part.link else {'url': '', 'ipn': part.IPN[:11]} for part in parts]
+save_data_to_json(data, stock_listings_path)
 
-data = [{'url': part.link, 'ipn': part.IPN[:11]} if part.link else {
-    'url': '', 'ipn': part.IPN[:11]} for part in parts]
-
-with open(stock_listings_path, 'w') as json_file:
-    json.dump(data, json_file, indent=4)
-
+# eBay API connection
 ebay_api = Connection(
     domain='api.ebay.com',
     appid=os.environ.get('EBAY_APP_ID'),
@@ -43,6 +59,7 @@ ebay_api = Connection(
     config_file=None
 )
 
+# Retrieve active listings from eBay
 page_number = 1
 entries_per_page = 200
 all_listings = []
@@ -58,178 +75,191 @@ while True:
         }
     })
 
-    all_listings.extend(response.reply.ActiveList.ItemArray.Item)
+    items = response.reply.ActiveList.ItemArray.Item
+    all_listings.extend(items)
 
-    if int(response.reply.ActiveList.PaginationResult.TotalNumberOfPages) > page_number:
-        page_number += 1
-    else:
+    pagination_result = response.reply.ActiveList.PaginationResult
+    total_pages = int(pagination_result.TotalNumberOfPages)
+    page_number += 1
+
+    if page_number > total_pages:
         break
 
-active_listings = [{'title': item.Title, 'id': item.ItemID,
-                    'SKU': item.SKU if hasattr(item, 'SKU') else ''} for item in all_listings]
+# Save active listings to active_listings.json
+active_listings = [{'title': item.Title, 'id': item.ItemID, 'SKU': item.SKU if hasattr(item, 'SKU') else ''} for item in all_listings]
+save_data_to_json(active_listings, active_listings_path)
 
-with open(active_listings_path, 'w') as f:
-    json.dump(active_listings, f)
-
-with open('active_listings.json', 'r') as json_file:
-    active_listings_data = json.load(json_file)
-
+# Check for duplicate SKUs
+active_listings_data = load_data_from_json(active_listings_path)
 seen_skus = set()
+duplicate_skus = set()
 
 for item in active_listings_data:
     ebay_sku = item.get('SKU', '')
     if ebay_sku:
         if ebay_sku in seen_skus:
-            print(f"Duplicate found: {ebay_sku}")
+            duplicate_skus.add(ebay_sku)
         else:
             seen_skus.add(ebay_sku)
 
-print("\nDuplicate SKU check completed.\n")
+if duplicate_skus:
+    print(f"Duplicati trovati: {duplicate_skus}")
+else:
+    print("Check SKU Completed.")
 
-with open('stock_listings.json', 'r') as json_file:
-    stock_listings_data = json.load(json_file)
 
-mapping = {item['ipn']: item['url'] for item in stock_listings_data}
+# Carica i dati dai file JSON
+stock_listings_data = load_data_from_json(stock_listings_path)
+active_listings_data = load_data_from_json(active_listings_path)
 
-total_matches = 0
+
+# Conteggio degli SKU negli active listings
+total_active_listings = len(active_listings_data)
+
+# Conteggio degli SKU negli stock listings
+total_stock_listings = len(stock_listings_data)
+
+# Stampiamo i risultati
+print(f"Total active listings: {total_active_listings}")
+print(f"Total stock listings: {total_stock_listings}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Inizializzazione del conteggio dei confronti
 total_comparisons = 0
-incorrect_matches = 0
+total_matches = 0
+missing_matches = 0
 
-for ebay_item in active_listings_data:
-    ebay_sku = ebay_item.get('SKU', '')
-    if ebay_sku:
-        total_comparisons += 1
-        ipn = None
-        url = None
+# Iterazione sugli SKU negli active listings
+for active_item in active_listings:
+    active_sku = active_item['SKU']
+    active_id = active_item['id']
+    active_title = active_item['title']
 
-        if '-' in ebay_sku:
-            main_ipn, variants = ebay_sku.split('-', 1)
-            if main_ipn in mapping:
-                ipn = main_ipn
-                url = mapping[main_ipn]
-                for variant in variants.split('-'):
-                    ipn_with_variant = ipn + variant
-                    if ipn_with_variant in mapping:
-                        ipn = ipn_with_variant
-                        url = mapping[ipn_with_variant]
-                        break
-        elif ebay_sku in mapping:
-            ipn = ebay_sku
-            url = mapping[ebay_sku]
+    # Debug: Log dell'inizio del processo per l'SKU attuale
+    logging.info(f"Processing SKU: {active_sku} ({active_title})")
 
-        if ipn and url:
-            total_matches += 1
-        else:
-            print(f"No match found for SKU {ebay_sku}")
+    # Controlla se l'SKU attivo ha varianti
+    if '-' in active_sku:
+        main_ipn, variants = active_sku.split('-', 1)
+        main_ipn = main_ipn[:11]  # Mantieni solo i primi 11 caratteri
 
-part_mapping = {part['ipn']: part['url'] for part in stock_listings_data}
+        # Debug: Log dell'SKU principale e delle sue varianti
+        logging.info(f"Main IPN: {main_ipn}, Variants: {variants}")
 
+          # Split delle varianti e elaborazione
+        for variant in variants.split('-'):
+            variant_length = len(variant)
+            ipn_with_variant = main_ipn[:-variant_length] + variant
+            total_comparisons += 1  # Ogni combinazione di IPN e variante conta come un confronto
 
-correct_links = 0
-missing_links = 0
+            # Debug: Log della variante attualmente processata
+            logging.info(f"Processing variant: {variant}")
 
-matching_details = []
-skus_without_link = set()
+            # Controlla se esiste una corrispondenza negli stock listings
+            matched = False
+            for stock_item in stock_listings_data:
+                stock_ipn = stock_item['ipn']
+                stock_url = stock_item['url']
+                if ipn_with_variant == stock_ipn:
+                    matched = True
+                    total_matches += 1
+                    # Debug: Log della corrispondenza trovata
+                    logging.info(f"Match found for SKU '{active_sku}' ({active_title}), IPN: {stock_ipn}, URL: {stock_url}")
+                    break
+            
+            if not matched:
+                missing_matches += 1
+                # Debug: Log della mancata corrispondenza
+                logging.warning(f"No match found for SKU '{active_sku}' ({active_title}), IPN with variant: {ipn_with_variant}")
 
-for ebay_item in active_listings_data:
-    ebay_sku = ebay_item.get('SKU', '')
-    ebay_id = ebay_item.get('id', '')
-    ebay_url = f"https://www.ebay.it/itm/{ebay_id}"
+    else:
+        total_comparisons += 1  # Conta l'SKU principale come un confronto
 
-    if ebay_sku:
-        ipn = None
-        url = None
+        # Debug: Log dell'SKU principale
+        logging.info(f"Main IPN: {active_sku}")
 
-        if '-' in ebay_sku:
-            main_ipn, variants = ebay_sku.split('-', 1)
-            if main_ipn in part_mapping:
-                ipn = main_ipn[:11]  # Keep only the first 11 digits
-                url = part_mapping[main_ipn]
-
-                for variant in variants.split('-'):
-                    ipn_with_variant = ipn + variant
-                    if ipn_with_variant in part_mapping:
-                        ipn = ipn_with_variant
-                        url = part_mapping[ipn_with_variant]
-                        break
-            else:
-                found_variant = False
-                for variant in variants.split('-'):
-                    ipn_with_variant = main_ipn + variant
-                    if ipn_with_variant in part_mapping:
-                        found_variant = True
-                        # Keep only the first 11 digits
-                        ipn = ipn_with_variant[:11]
-                        url = part_mapping[ipn_with_variant]
-                        break
-
-                if not found_variant:
-                    ipn = None
-                    url = None
-        else:
-            ipn = ebay_sku[:11]  # Keep only the first 11 digits
-            url = part_mapping.get(ipn)
-
-        if ipn and url:
-            if ebay_url == url:
-                correct_links += 1
-                # matching_details.append({'ebay_url': ebay_url, 'ipn': ipn, 'match_status': 'Match'})
-            else:
-                incorrect_matches += 1
-                matching_details.append(
-                    {'ebay_url': ebay_url, 'ipn': ipn, 'match_status': 'Not a match'})
-        else:
-            missing_links += 1
-            skus_without_link.add(ebay_sku)
-            matching_details.append(
-                {'ebay_url': ebay_url, 'ipn': ebay_sku[:11], 'match_status': 'Missing'})
-
-print(
-    f"\nComparison check completed. Total comparisons: {total_comparisons}, Total matches: {total_matches}, Missing matches: {total_comparisons-total_matches}, Incorrect matches: {incorrect_matches}\n")
-
-
-missing_links += len(skus_without_link)
-
-matching_details_sorted = sorted(matching_details, key=lambda x: x['ipn'])
-ipns_without_match = []
-
-for part in stock_listings_data:
-    ipn = part.get('ipn', '')
-    sku = part_mapping.get(ipn, '')
-
-    if not sku:
-        missing_links += 1
-        ipns_without_match.append(ipn)
-
-for match in matching_details_sorted:
-    print(
-        f"IPN: {match['ipn']} - eBay URL: {match['ebay_url']} - {match['match_status']} on InvenTree URL")
-
-    if match['match_status'] == 'Not a match':
-        ipn = match['ipn']
-        ebay_url = match['ebay_url']
-
-        # Trova l'oggetto Part corrispondente all'IPN
-        for part in parts:
-            if part.IPN == ipn:
-                # Update specified part parameters
-                part.save(data={
-                    "link": ebay_url,
-                })
-
-                # Reload data from remote server
-                part.reload()
-
-                print(
-                    f"Updated InvenTree URL for IPN {ipn} with eBay URL {ebay_url}")
+        # Controlla se l'SKU principale ha una corrispondenza negli stock listings
+        matched = False
+        for stock_item in stock_listings_data:
+            stock_ipn = stock_item['ipn']
+            stock_url = stock_item['url']
+            if active_sku == stock_ipn:
+                matched = True
+                total_matches += 1
+                # Debug: Log della corrispondenza trovata
+                logging.info(f"Match found for SKU '{active_sku}' ({active_title}), IPN: {stock_ipn}, URL: {stock_url}")
                 break
+        
+        if not matched:
+            missing_matches += 1
+            # Debug: Log della mancata corrispondenza
+            logging.warning(f"No match found for SKU '{active_sku}' ({active_title}), IPN: {active_sku}")
 
-print("\nIPNs without a match:")
-for ipn in ipns_without_match:
-    print(f"IPN: {ipn} - Not mapped on eBay")
+# Stampiamo i risultati
+print(f"\nComparison check completed.")
+print(f"Total comparisons: {total_comparisons}")
+print(f"Total matches: {total_matches}")
+print(f"Missing matches: {missing_matches}")
 
-print(
-    f"\nLinks check comparison completed. Correct links: {correct_links}, Missing links: {missing_links}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Request the list of parts through the API
 parts = Part.list(inventree_api)
