@@ -10,7 +10,7 @@ from ebaysdk.trading import Connection
 load_dotenv()
 
 # Configura il logging
-logging.basicConfig(filename='debug.log', filemode='w', level=logging.INFO, 
+logging.basicConfig(filename='debug.log', filemode='w', level=logging.WARN, 
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -235,15 +235,21 @@ print(f"Total matches: {total_matches}")
 print(f"Missing matches: {missing_matches}")
 
 
-# Trova gli SKU mancanti su eBay rispetto a InvenTree
+# Trova gli SKU principali mancanti su eBay rispetto a InvenTree
 missing_skus = stock_skus - active_skus
 
-# Stampa gli SKU mancanti
-if missing_skus:
-    print(f"Gli SKU presenti in InvenTree ma non attivi su eBay sono: {missing_skus}")
-    print(len(missing_skus))
+# Ordina gli SKU mancanti in ordine alfabetico
+missing_skus_sorted = sorted(missing_skus)
+
+# Stampa gli SKU mancanti uno per uno
+if missing_skus_sorted:
+    print("Gli SKU presenti in InvenTree ma non attivi su eBay sono:")
+    for sku in missing_skus_sorted:
+        print(sku)
+    print(f"Numero totale di SKU mancanti: {len(missing_skus_sorted)}")
 else:
-    print("Non sono stati trovati SKU mancanti su eBay rispetto a InvenTree.")
+    print("Non sono stati trovati SKU principali mancanti su eBay rispetto a InvenTree.")
+
 
 
 
