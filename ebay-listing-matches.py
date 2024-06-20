@@ -127,6 +127,12 @@ active_skus = {item['SKU'] for item in active_listings_data if item.get('SKU')}
 
 
 
+
+
+
+
+
+
 # Inizializzazione del conteggio dei confronti
 total_comparisons = 0
 total_matches = 0
@@ -138,13 +144,12 @@ for active_item in active_listings:
     active_id = active_item['id']
     active_title = active_item['title']
 
-
     # Controlla se l'SKU attivo ha varianti
     if '-' in active_sku:
         main_ipn, variants = active_sku.split('-', 1)
         main_ipn = main_ipn[:11]  # Mantieni solo i primi 11 caratteri
         active_skus.add(main_ipn)
-       
+        
           # Split delle varianti e elaborazione
         for variant in variants.split('-'):
             variant_length = len(variant)
@@ -170,9 +175,6 @@ for active_item in active_listings:
 
     else:
         total_comparisons += 1  # Conta l'SKU principale come un confronto
-
-        # Debug: Log dell'SKU principale
-        logging.info(f"Main IPN: {active_sku}")
 
         # Controlla se l'SKU principale ha una corrispondenza negli stock listings
         matched = False
