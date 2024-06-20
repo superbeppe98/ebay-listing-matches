@@ -9,11 +9,6 @@ from ebaysdk.trading import Connection
 
 load_dotenv()
 
-# Configura il logging
-logging.basicConfig(filename='debug.log', filemode='w', level=logging.WARN, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-
-
 def ensure_json_file(path):
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -112,7 +107,6 @@ else:
 stock_listings_data = load_data_from_json(stock_listings_path)
 active_listings_data = load_data_from_json(active_listings_path)
 
-
 # Conteggio degli SKU negli active listings
 total_active_listings = len(active_listings_data)
 
@@ -123,35 +117,11 @@ total_stock_listings = len(stock_listings_data)
 print(f"Total active listings: {total_active_listings}")
 print(f"Total stock listings: {total_stock_listings}")
 
-
-
-
-
-
-
-
-
-
-
-
 # Estrai gli SKU da InvenTree
 stock_skus = {item['ipn'] for item in stock_listings_data}
 
 # Estrai gli SKU attivi da eBay
 active_skus = {item['SKU'] for item in active_listings_data if item.get('SKU')}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -168,26 +138,20 @@ for active_item in active_listings:
     active_id = active_item['id']
     active_title = active_item['title']
 
-    # Debug: Log dell'inizio del processo per l'SKU attuale
-    logging.info(f"Processing SKU: {active_sku} ({active_title})")
 
     # Controlla se l'SKU attivo ha varianti
     if '-' in active_sku:
         main_ipn, variants = active_sku.split('-', 1)
         main_ipn = main_ipn[:11]  # Mantieni solo i primi 11 caratteri
         active_skus.add(main_ipn)
-        # Debug: Log dell'SKU principale e delle sue varianti
-        logging.info(f"Main IPN: {main_ipn}, Variants: {variants}")
-
+       
           # Split delle varianti e elaborazione
         for variant in variants.split('-'):
             variant_length = len(variant)
             ipn_with_variant = main_ipn[:-variant_length] + variant
             total_comparisons += 1  # Ogni combinazione di IPN e variante conta come un confronto
             active_skus.add(ipn_with_variant)
-            # Debug: Log della variante attualmente processata
-            logging.info(f"Processing variant: {variant}")
-
+            
             # Controlla se esiste una corrispondenza negli stock listings
             matched = False
             for stock_item in stock_listings_data:
@@ -197,13 +161,12 @@ for active_item in active_listings:
                     matched = True
                     total_matches += 1
                     # Debug: Log della corrispondenza trovata
-                    logging.info(f"Match found for SKU '{active_sku}' ({active_title}), IPN: {stock_ipn}, URL: {stock_url}")
                     break
             
             if not matched:
                 missing_matches += 1
                 # Debug: Log della mancata corrispondenza
-                logging.warning(f"No match found for SKU '{active_sku}' ({active_title}), IPN with variant: {ipn_with_variant}")
+                print(f"No match found for SKU '{active_sku}' ({active_title}), IPN with variant: {ipn_with_variant}")
 
     else:
         total_comparisons += 1  # Conta l'SKU principale come un confronto
@@ -220,19 +183,23 @@ for active_item in active_listings:
                 matched = True
                 total_matches += 1
                 # Debug: Log della corrispondenza trovata
-                logging.info(f"Match found for SKU '{active_sku}' ({active_title}), IPN: {stock_ipn}, URL: {stock_url}")
                 break
         
         if not matched:
             missing_matches += 1
             # Debug: Log della mancata corrispondenza
-            logging.warning(f"No match found for SKU '{active_sku}' ({active_title}), IPN: {active_sku}")
+            print(f"No match found for SKU '{active_sku}' ({active_title}), IPN: {active_sku}")
 
 # Stampiamo i risultati
 print(f"\nComparison check completed.")
 print(f"Total comparisons: {total_comparisons}")
 print(f"Total matches: {total_matches}")
 print(f"Missing matches: {missing_matches}")
+
+
+
+
+
 
 
 # Trova gli SKU principali mancanti su eBay rispetto a InvenTree
