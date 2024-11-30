@@ -158,30 +158,28 @@ stock_items = StockItem.list(inventree_api)
 
 print("\nChecking parts with no stock...")
 
-parts_with_no_stock = []
-all_locations = StockLocation.list(inventree_api)  # Lista tutte le location di stock
-all_categories = PartCategory.list(inventree_api)  # Lista tutte le categorie degli oggetti
+parts_without_stock = []
+all_stock_locations = StockLocation.list(inventree_api)  # Get all stock locations
+all_part_categories = PartCategory.list(inventree_api)  # Get all part categories
 
-# Lista delle location di stock
-location_names = {location.name: location.pk for location in all_locations if not getattr(location, 'structural', False)}
+# Create a dictionary mapping stock location names to their IDs, excluding structural locations
+location_name_to_id = {location.name: location.pk for location in all_stock_locations if not getattr(location, 'structural', False)}
 
 for part in parts:
     stock_items_for_part = [stock_item for stock_item in stock_items if stock_item.part == part.pk]
 
-    if not stock_items_for_part:  # Nessuno stock trovato per questo oggetto
-        parts_with_no_stock.append(part)
+    if not stock_items_for_part:  # If no stock is found for this part
+        parts_without_stock.append(part)
         print(f"No stock found for: IPN {part.IPN} - {part.name}")
 
-        # Trova il nome della categoria del pezzo
         category_name = None
         try:
-            # Se l'oggetto ha una categoria associata
-            if part.category:  # Se c'è una categoria associata (part.category è un ID)
-                # Cerchiamo la categoria nella lista delle categorie
-                category = next((cat for cat in all_categories if cat.pk == part.category), None)
+            if part.category:  # If the part has an assigned category (part.category is an ID)
+                # Find the category in the list of part categories
+                category = next((cat for cat in all_part_categories if cat.pk == part.category), None)
 
                 if category:
-                    category_name = category.name  # Recuperiamo il nome della categoria
+                    category_name = category.name  # Retrieve the category name
                     print(f"Category for part IPN {part.IPN}: {category_name}")
                 else:
                     print(f"Category with ID {part.category} not found for part IPN {part.IPN}.")
@@ -190,31 +188,27 @@ for part in parts:
         except Exception as e:
             print(f"Error fetching category for part IPN {part.IPN}. Details: {e}")
 
-        # Cerca una location corrispondente basata sul nome della categoria
-        default_location = None
+        # Find the matching stock location based on the category name
+        matching_location = None
         if category_name:
-            # Controlliamo se esiste una location con lo stesso nome della categoria
-            if category_name in location_names:
-                default_location = next(location for location in all_locations if location.name == category_name)
-                print(f"Found matching location for category '{category_name}': {default_location.name} (ID: {default_location.pk})")
+            if category_name in location_name_to_id:
+                matching_location = next(location for location in all_stock_locations if location.name == category_name)
+                print(f"Found matching location for category '{category_name}': {matching_location.name} (ID: {matching_location.pk})")
             else:
                 print(f"No matching stock location found for category '{category_name}'.")
 
-        # Se non troviamo una location corrispondente, saltiamo la creazione dello stock per questa parte
-        if not default_location:
+        if not matching_location:
             print(f"No valid stock location found for part IPN {part.IPN}. Skipping stock creation.")
             continue
 
-        # Crea l'elemento di stock vuoto
         try:
             stock_data = {
-                "part": part.pk,                # Link the stock item to the part
-                "location": default_location.pk,  # Specify the part's location
-                "quantity": 1,                  # Set initial quantity to zero
-                "status": 10,                   # Stock status (adjust as per InvenTree configuration)
+                "part": part.pk,                 # Link the stock item to the part
+                "location": matching_location.pk,  # Specify the part's location
+                "quantity": 1,                   # Set the initial quantity to 1
+                "status": 10,                    # Stock status (adjust as per InvenTree configuration)
             }
 
-            # Debugging: Print stock data being sent
             print(f"Creating stock item with data: {stock_data}")
 
             new_stock_item = StockItem.create(inventree_api, stock_data)
@@ -223,7 +217,8 @@ for part in parts:
         except Exception as e:
             print(f"Error creating stock for: IPN {part.IPN} - {part.name}. Details: {e}")
 
-print(f"\nTotal parts with no initial stock: {len(parts_with_no_stock)}")
+print(f"\nTotal parts with no initial stock: {len(parts_without_stock)}")
+
 
 
 
