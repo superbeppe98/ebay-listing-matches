@@ -2,9 +2,10 @@ import os
 import json
 from dotenv import load_dotenv
 from inventree.api import InvenTreeAPI
-from inventree.part import Part
-from inventree.stock import StockItem
+from inventree.part import Part,PartCategory
+from inventree.stock import StockItem, StockLocation
 from ebaysdk.trading import Connection
+
 
 load_dotenv()
 
@@ -149,6 +150,95 @@ else:
 
 parts_data = [{"name": part.name, "IPN": part.IPN, "ID": part.pk, "packaging": ""} for part in parts]
 stock_items = StockItem.list(inventree_api)
+
+
+
+
+
+
+print("\nChecking parts with no stock...")
+
+parts_with_no_stock = []
+all_locations = StockLocation.list(inventree_api)  # Lista tutte le location di stock
+all_categories = PartCategory.list(inventree_api)  # Lista tutte le categorie degli oggetti
+
+# Lista delle location di stock
+location_names = {location.name: location.pk for location in all_locations if not getattr(location, 'structural', False)}
+
+for part in parts:
+    stock_items_for_part = [stock_item for stock_item in stock_items if stock_item.part == part.pk]
+
+    if not stock_items_for_part:  # Nessuno stock trovato per questo oggetto
+        parts_with_no_stock.append(part)
+        print(f"No stock found for: IPN {part.IPN} - {part.name}")
+
+        # Trova il nome della categoria del pezzo
+        category_name = None
+        try:
+            # Se l'oggetto ha una categoria associata
+            if part.category:  # Se c'è una categoria associata (part.category è un ID)
+                # Cerchiamo la categoria nella lista delle categorie
+                category = next((cat for cat in all_categories if cat.pk == part.category), None)
+
+                if category:
+                    category_name = category.name  # Recuperiamo il nome della categoria
+                    print(f"Category for part IPN {part.IPN}: {category_name}")
+                else:
+                    print(f"Category with ID {part.category} not found for part IPN {part.IPN}.")
+            else:
+                print(f"No category assigned for part IPN {part.IPN}.")
+        except Exception as e:
+            print(f"Error fetching category for part IPN {part.IPN}. Details: {e}")
+
+        # Cerca una location corrispondente basata sul nome della categoria
+        default_location = None
+        if category_name:
+            # Controlliamo se esiste una location con lo stesso nome della categoria
+            if category_name in location_names:
+                default_location = next(location for location in all_locations if location.name == category_name)
+                print(f"Found matching location for category '{category_name}': {default_location.name} (ID: {default_location.pk})")
+            else:
+                print(f"No matching stock location found for category '{category_name}'.")
+
+        # Se non troviamo una location corrispondente, saltiamo la creazione dello stock per questa parte
+        if not default_location:
+            print(f"No valid stock location found for part IPN {part.IPN}. Skipping stock creation.")
+            continue
+
+        # Crea l'elemento di stock vuoto
+        try:
+            stock_data = {
+                "part": part.pk,                # Link the stock item to the part
+                "location": default_location.pk,  # Specify the part's location
+                "quantity": 1,                  # Set initial quantity to zero
+                "status": 10,                   # Stock status (adjust as per InvenTree configuration)
+            }
+
+            # Debugging: Print stock data being sent
+            print(f"Creating stock item with data: {stock_data}")
+
+            new_stock_item = StockItem.create(inventree_api, stock_data)
+            print(f"Empty stock created for: IPN {part.IPN} - {part.name}, Stock ID: {new_stock_item.pk}")
+
+        except Exception as e:
+            print(f"Error creating stock for: IPN {part.IPN} - {part.name}. Details: {e}")
+
+print(f"\nTotal parts with no initial stock: {len(parts_with_no_stock)}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 for item in parts_data:
     part_ipn = item['IPN']
