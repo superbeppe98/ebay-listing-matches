@@ -167,48 +167,26 @@ for part in parts:
         print(f"No stock found for: IPN {part.IPN} - {part.name}")
 
         category_name = None
-        try:
-            if part.category:
-                category = next((cat for cat in all_part_categories if cat.pk == part.category), None)
-                if category:
-                    category_name = category.name
-                    print(f"Category for part IPN {part.IPN}: {category_name}")
-                else:
-                    print(f"Category with ID {part.category} not found for part IPN {part.IPN}.")
-            else:
-                print(f"No category assigned for part IPN {part.IPN}.")
-        except Exception as e:
-            print(f"Error fetching category for part IPN {part.IPN}. Details: {e}")
+        if part.category:
+            category = next((cat for cat in all_part_categories if cat.pk == part.category), None)
+            if category:
+                category_name = category.name
 
         matching_location = None
         if category_name:
             if category_name in location_name_to_id:
                 matching_location = next(location for location in all_stock_locations if location.name == category_name)
-                print(f"Found matching location for category '{category_name}': {matching_location.name} (ID: {matching_location.pk})")
-            else:
-                print(f"No matching stock location found for category '{category_name}'.")
 
-        if not matching_location:
-            print(f"No valid stock location found for part IPN {part.IPN}. Skipping stock creation.")
-            continue
-
-        try:
             stock_data = {
                 "part": part.pk,
                 "location": matching_location.pk,
                 "quantity": 1,
-                "status": 10,
+                "status": 10, 
             }
-
-            print(f"Creating stock item with data: {stock_data}")
-
-            new_stock_item = StockItem.create(inventree_api, stock_data)
-            print(f"Empty stock created for: IPN {part.IPN} - {part.name}, Stock ID: {new_stock_item.pk}")
-
-        except Exception as e:
-            print(f"Error creating stock for: IPN {part.IPN} - {part.name}. Details: {e}")
-
-print(f"\nTotal parts with no initial stock: {len(parts_without_stock)}")
+        new_stock_item = StockItem.create(inventree_api, stock_data)
+        print(f"Empty stock created for: IPN {part.IPN} - {part.name}, Stock ID: {new_stock_item.pk}")
+        
+print(f"Total parts with no initial stock: {len(parts_without_stock)}")
 
 for item in parts_data:
     part_ipn = item['IPN']
